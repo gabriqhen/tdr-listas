@@ -1,0 +1,235 @@
+---
+title: "Três linguagens, um documento"
+subtitle: "Bash, Python e R no mesmo arquivo Quarto"
+author: "Tecnologia de Dados (DEST/UFPR)"
+date: today
+lang: pt-BR
+format:
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+---
+
+Um documento Quarto não é preso a uma linguagem. Este arquivo usa três,
+cada uma na tarefa em que ela é boa:
+
+1. **Bash** varre o arquivo de dados bruto e produz um resumo agregado.
+2. **Python** lê esse resumo e o formata como tabela.
+3. **R** lê os dois arquivos e desenha os gráficos.
+
+Antes das três, uma seção curta resolve os caminhos dos arquivos --- o
+único assunto que as três precisam enxergar do mesmo jeito.
+
+::: {.callout-important}
+## O que este documento precisa
+
+Além de R e Quarto, é preciso o pacote `reticulate`, que dá ao `knitr` a
+ponte para os blocos em Python. Se não encontrar um Python adequado no
+sistema, ele baixa um por conta própria na primeira renderização, o que
+leva alguns minutos; para usar o Python que já está instalado, defina a
+variável de ambiente `RETICULATE_PYTHON` com o caminho dele. Os blocos em
+Bash e em Python não pedem pacote nenhum, e os em R usam só funções da
+instalação básica.
+
+Todos os caminhos são relativos e supõem que o diretório de trabalho é a
+pasta `qmds/`. Fora essa combinação, nenhum bloco depende de outro ter
+rodado antes para saber onde os arquivos estão: renderizado, rodado bloco
+a bloco no console ou copiado para um terminal, um console de R ou um
+interpretador de Python, o resultado é o mesmo. O `reticulate` é
+exigência de quem renderiza, não de quem roda os blocos em Python à mão.
+:::
+
+## Caminhos: um ponto de partida só
+
+Um documento em três linguagens tem três noções de "diretório atual", e
+elas não coincidem. Ao renderizar, o `knitr` avalia todos os blocos com o
+diretório de trabalho na pasta deste arquivo; um console de R aberto no
+projeto costuma ficar na raiz dele, e um terminal fica onde você o abriu.
+Caminho relativo, portanto, é caminho que funciona de um jeito e falha do
+outro, e quem quebra primeiro costuma ser o bloco em outra linguagem, que
+não avisa que dependia disso.
+
+A saída adotada aqui é **declarar o ponto de partida em vez de
+descobri-lo**: todos os blocos supõem que o diretório de trabalho é a
+pasta `qmds/`, que é exatamente onde o `knitr` os coloca ao renderizar.
+Rodando à mão, é de lá que cada interpretador deve ser iniciado. Daí em
+diante os caminhos são relativos e idênticos nas três linguagens:
+`../dados/airquality.csv` para os dados brutos e `resumo-mensal.csv` para
+o arquivo intermediário.
+
+Uma linha em cada linguagem confere onde ela está, e é essa linha que
+explica o erro quando um arquivo não é encontrado: `pwd` no shell,
+`getwd()` no R e `os.getcwd()` no Python.
+
+```{r caminhos}
+getwd()
+dados_csv <- "../dados/airquality.csv"
+resumo_csv <- "resumo-mensal.csv"
+file.exists(dados_csv)
+```
+
+Cada linguagem monta o caminho por conta própria, e é isso que as torna
+independentes: nenhuma depende da vizinha ter rodado antes. Um bloco de
+Bash copiado para um terminal e um bloco de Python colado em um
+interpretador encontram exatamente os mesmos arquivos, sem sessão de R
+por perto. No R, os dois caminhos ficam definidos na sessão e servem aos
+blocos seguintes.
+
+::: {.callout-note}
+## Por que não uma âncora absoluta
+
+A alternativa seria cada linguagem procurar sozinha a raiz do projeto,
+com `here::here()` no R e `git rev-parse --show-toplevel` no shell e no
+Python. Funciona dentro de um clone e falha justamente onde este material
+costuma ser usado: quem baixa o `tdr-material.zip` não tem `.git` nem
+`.Rproj` para servirem de marca, e o `git` só é apresentado no Capítulo
+3. Um diretório de partida declarado em uma frase não depende de
+ferramenta alguma.
+:::
+
+## Bash: inspecionar antes de carregar
+
+Antes de ler os dados em qualquer linguagem, vale olhar o arquivo como
+ele é: texto. O shell responde em milissegundos perguntas que custariam
+uma leitura completa em memória.
+
+```{bash inspecao}
+pwd
+
+wc -l < ../dados/airquality.csv
+head -3 ../dados/airquality.csv
+grep -c NA ../dados/airquality.csv
+```
+
+São 154 linhas --- 153 observações mais o cabeçalho --- e 42 delas têm ao
+menos um valor faltante, anotado como `NA`.
+
+### Agregar com `awk`
+
+O `awk` percorre o arquivo linha a linha, acumulando somas por mês. A
+coluna 1 é o ozônio e a coluna 5 é o mês; linhas cujo ozônio é `NA`
+ficam de fora da média.
+
+```{bash resumo}
+{ echo "mes,media,dias"
+  awk -F, 'NR > 1 && $1 != "NA" { soma[$5] += $1; n[$5]++ }
+           END { for (m in soma)
+                   printf "%s,%.1f,%d\n", m, soma[m] / n[m], n[m] }' \
+      ../dados/airquality.csv | sort -t, -k1,1n
+} > resumo-mensal.csv
+
+cat resumo-mensal.csv
+```
+
+::: {.callout-warning}
+## Cada bloco Bash é um shell novo
+
+Uma variável definida em um bloco não existe no seguinte, e o mesmo vale
+para o diretório: um `cd` feito aqui não valeria para o bloco de baixo. É
+por isso que o resumo acima foi gravado em disco, e não guardado em
+memória: o arquivo `resumo-mensal.csv` é o que carrega o resultado
+adiante.
+:::
+
+## Python: ler e formatar
+
+O Python lê o arquivo que o `awk` acabou de escrever e o transforma em
+uma tabela Markdown. A opção `output: asis` faz o Quarto tratar o que foi
+impresso como texto do documento, e não como saída de código --- é assim
+que o bloco vira uma tabela de verdade.
+
+O bloco monta o caminho por conta própria, sem depender do que o bloco de
+Bash deixou definido, e para de imediato quando não encontra o arquivo,
+dizendo em que diretório estava ao procurar.
+
+```{python tabela}
+#| output: asis
+import csv
+import os
+from pathlib import Path
+
+resumo_csv = Path("resumo-mensal.csv")
+if not resumo_csv.exists():
+    raise FileNotFoundError(
+        f"rode este bloco a partir de qmds/; o atual é {os.getcwd()}")
+
+with open(resumo_csv, newline="") as arquivo:
+    linhas = list(csv.DictReader(arquivo))
+
+meses = {"5": "Maio", "6": "Junho", "7": "Julho",
+         "8": "Agosto", "9": "Setembro"}
+
+tabela = ["| Mês | Ozônio médio (ppb) | Dias medidos |",
+          "|:---|---:|---:|"]
+for linha in linhas:
+    nome = meses[linha["mes"]]
+    media = float(linha["media"])
+    tabela.append(f"| {nome} | {media:.1f} | {linha['dias']} |")
+
+print("\n".join(tabela))
+```
+
+Nenhuma biblioteca externa foi usada: `csv`, `os` e `pathlib` fazem parte
+da biblioteca padrão do Python. Repare que a tabela é montada
+em uma lista e impressa de uma vez só, e não linha a linha --- o `knitr`
+intercala código e saída na ordem em que aparecem, e um `print()` por
+linha quebraria a tabela em pedaços separados por blocos de código.
+
+## R: visualizar
+
+O R lê o arquivo bruto e o resumo produzido pelo `awk`, e confirma que os
+dois contam a mesma história.
+
+```{r leitura}
+dados <- read.csv(dados_csv)
+resumo <- read.csv(resumo_csv)
+resumo
+```
+
+```{r fig-mensal}
+#| fig-cap: "Ozônio médio por mês, calculado pelo `awk` e desenhado pelo
+#|   R. As barras vêm do arquivo intermediário, não dos dados brutos."
+#| fig-width: 7
+#| fig-height: 4
+barplot(resumo$media, names.arg = month.abb[resumo$mes],
+        col = "steelblue", border = NA,
+        ylab = "Ozônio médio (ppb)")
+```
+
+```{r fig-caixas}
+#| fig-cap: "Distribuição diária do ozônio em cada mês. A média da
+#|   @fig-mensal esconde a dispersão que estes boxplots mostram."
+#| fig-width: 7
+#| fig-height: 4
+boxplot(Ozone ~ Month, data = dados,
+        names = month.abb[5:9], col = "grey85",
+        xlab = "", ylab = "Ozônio (ppb)")
+```
+
+A @fig-mensal e a @fig-caixas usam a mesma variável e discordam no
+essencial: julho e agosto têm médias parecidas, mas agosto tem uma cauda
+muito mais longa. Nenhuma média sobrevive sozinha a esse tipo de
+comparação.
+
+## O que sustenta o documento
+
+As três linguagens rodam no mesmo documento, mas **quase não compartilham
+memória**: o `soma` do `awk` não existe em lugar nenhum depois que o
+bloco termina, e o objeto `linhas` do Python não existe no R. O que passa
+de uma etapa para a outra é arquivo em disco --- o `resumo-mensal.csv`
+--- e nada além disso.
+
+O `reticulate` até abriria uma exceção, com `r.dados_csv` no Python e
+`py$linhas` no R. O documento não usa nenhuma das duas, de propósito:
+combinar um diretório de partida, dito em uma frase, sai mais barato do
+que combinar uma variável que alguém precisa ter definido antes. É o que
+permite arrancar qualquer bloco daqui e rodá-lo isolado, fora do
+documento.
+
+Essa restrição é o que torna o documento reprodutível. Cada etapa deixa
+um rastro verificável, e a ordem em que elas aparecem no texto é a ordem
+em que serão executadas.
