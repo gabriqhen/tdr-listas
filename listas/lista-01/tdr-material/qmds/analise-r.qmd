@@ -1,0 +1,126 @@
+---
+title: "Qualidade do ar em Nova York"
+subtitle: "Exemplo de documento Quarto com código R"
+author: "Tecnologia de Dados (DEST/UFPR)"
+date: today
+lang: pt-BR
+format:
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+---
+
+Este documento refaz, em Quarto, a mesma análise do script
+`scripts/exemplo-estilo.R`: descritivas, um modelo linear e um intervalo
+de confiança bootstrap para os dados `airquality`, medidos em Nova York
+entre maio e setembro de 1973.
+
+A diferença não está na análise, e sim em quem garante os números: aqui
+nenhum resultado foi digitado à mão. Todos são calculados no momento em
+que o documento é renderizado, a partir do arquivo de dados.
+
+::: {.callout-note}
+## O que este documento precisa
+
+Apenas R e Quarto: a análise não usa pacote externo nenhum. O caminho do
+arquivo de dados é relativo e supõe que o diretório de trabalho é a pasta
+`qmds/`, que é onde a renderização coloca os blocos e de onde eles devem
+ser rodados à mão. Mantenha a estrutura de diretórios do material, com
+`dados/` ao lado de `qmds/`.
+:::
+
+## Os dados
+
+```{r leitura}
+dados <- read.csv("../dados/airquality.csv")
+str(dados)
+```
+
+O arquivo tem `r nrow(dados)` observações e `r ncol(dados)` variáveis.
+Nem todas estão completas:
+
+```{r faltantes}
+faltantes <- sapply(dados, function(x) sum(is.na(x)))
+faltantes
+```
+
+O ozônio é a variável com mais buracos: `r faltantes[["Ozone"]]` dias sem
+medida. A análise a seguir usa apenas os casos completos.
+
+```{r casos-completos}
+completos <- na.omit(dados)
+nrow(completos)
+```
+
+## Descritivas por mês
+
+```{r tabela-mensal}
+resumo <- aggregate(Ozone ~ Month, data = completos,
+                    FUN = function(x) c(media = mean(x), desvio = sd(x)))
+tabela <- data.frame(Mes = month.name[resumo$Month],
+                     Media = round(resumo$Ozone[, "media"], 1),
+                     Desvio = round(resumo$Ozone[, "desvio"], 1))
+knitr::kable(tabela, caption = "Ozônio médio por mês, em ppb.")
+```
+
+Julho e agosto concentram as maiores concentrações, o que já sugere
+relação com a temperatura.
+
+```{r fig-dispersao}
+#| fig-cap: "Ozônio contra temperatura, com a reta de mínimos quadrados
+#|   ajustada. Cada ponto é um dia."
+#| fig-width: 7
+#| fig-height: 4.5
+plot(completos$Temp, completos$Ozone,
+     pch = 20, col = "steelblue",
+     xlab = "Temperatura (°F)", ylab = "Ozônio (ppb)")
+abline(lm(Ozone ~ Temp, data = completos), col = "tomato", lwd = 2)
+```
+
+A @fig-dispersao mostra uma associação positiva clara, mas com variância
+crescente: dias quentes têm ozônio alto *e* mais imprevisível.
+
+## Modelo linear
+
+```{r modelo}
+ajuste <- lm(Ozone ~ Temp + Wind + Solar.R, data = completos)
+summary(ajuste)
+```
+
+O modelo explica `r round(100 * summary(ajuste)$r.squared, 1)`% da
+variação do ozônio. Os três coeficientes são significativos, e os sinais
+são os esperados: temperatura e radiação solar aumentam o ozônio,
+enquanto o vento o dispersa.
+
+## Bootstrap da correlação
+
+O intervalo de confiança abaixo não depende de suposição de normalidade
+--- ele vem da reamostragem dos próprios dados.
+
+```{r bootstrap}
+set.seed(1234)
+n_reamostras <- 1000
+correlacoes <- replicate(n_reamostras, {
+  indices <- sample(seq_len(nrow(completos)), replace = TRUE)
+  cor(completos$Ozone[indices], completos$Temp[indices])
+})
+quantile(correlacoes, c(0.025, 0.975))
+```
+
+```{r fig-bootstrap}
+#| fig-cap: "Distribuição bootstrap da correlação entre ozônio e
+#|   temperatura, com o intervalo de 95% em tracejado."
+#| fig-width: 7
+#| fig-height: 4
+hist(correlacoes, breaks = 30, col = "grey85", border = "white",
+     main = "", xlab = "Correlação")
+abline(v = quantile(correlacoes, c(0.025, 0.975)), lty = 2, lwd = 2)
+```
+
+A correlação observada é
+`r round(cor(completos$Ozone, completos$Temp), 3)`, e a @fig-bootstrap
+mostra que a reamostragem a mantém longe de zero em todas as réplicas.

@@ -1,0 +1,67 @@
+% Base de referências de artigo.tex e slides.tex.
+%
+% A chave de cada entrada é o que vai dentro do \cite, e o tipo da entrada
+% determina quais campos são obrigatórios.
+%
+% Cuidado ao editar este cabeçalho: o BibTeX ignora o texto fora das
+% entradas, mas não ignora uma arroba dentro dele --- escrever o nome de
+% um tipo com arroba aqui faz o BibTeX tentar ler um registro e falhar.
+%
+% Alguns estilos passam o título de artigos e de documentos avulsos para
+% minúsculas, e o que estiver entre chaves escapa disso: por isso o título
+% da última entrada leva um par de chaves a mais, sem o qual "LaTeX" sai
+% impresso como "latex".
+
+@book{lamport1994,
+  author    = {Lamport, Leslie},
+  title     = {LaTeX: A Document Preparation System},
+  edition   = {2},
+  publisher = {Addison-Wesley},
+  address   = {Reading},
+  year      = {1994}
+}
+
+@book{mittelbach2023,
+  author    = {Mittelbach, Frank and Fischer, Ulrike},
+  title     = {The LaTeX Companion},
+  edition   = {3},
+  publisher = {Addison-Wesley},
+  address   = {Boston},
+  year      = {2023}
+}
+
+@book{knuth1984,
+  author    = {Knuth, Donald E.},
+  title     = {The TeXbook},
+  publisher = {Addison-Wesley},
+  address   = {Reading},
+  year      = {1984}
+}
+
+@article{knuth1979,
+  author  = {Knuth, Donald E.},
+  title   = {Mathematical typography},
+  journal = {Bulletin of the American Mathematical Society},
+  volume  = {1},
+  number  = {2},
+  pages   = {337--372},
+  year    = {1979}
+}
+
+@manual{rcore,
+  author       = {{R Core Team}},
+  title        = {R: A Language and Environment for Statistical Computing},
+  organization = {R Foundation for Statistical Computing},
+  address      = {Vienna},
+  year         = {2026},
+  url          = {https://www.R-project.org/}
+}
+
+@misc{oetiker,
+  author       = {Oetiker, Tobias and Serwin, Marcin and Partl, Hubert and
+                  Hyna, Irene},
+  title        = {{The Not So Short Introduction to LaTeX 2e}},
+  howpublished = {\url{https://tobi.oetiker.ch/lshort/lshort.pdf}},
+  note         = {Versão 7.0},
+  year         = {2025}
+}

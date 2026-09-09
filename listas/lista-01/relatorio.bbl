@@ -1,0 +1,20 @@
+\begin{thebibliography}{2}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Chambers et~al.(1983)Chambers, Cleveland, Kleiner, and
+  Tukey]{chambers1983}
+John~M. Chambers, William~S. Cleveland, Beat Kleiner, and Paul~A. Tukey.
+\newblock \emph{Graphical Methods for Data Analysis}.
+\newblock Wadsworth \& Brooks/Cole, Pacific Grove, CA, 1983.
+
+\bibitem[{R Core Team}(2023)]{R-base}
+{R Core Team}.
+\newblock \emph{R: A Language and Environment for Statistical Computing}.
+\newblock R Foundation for Statistical Computing, Vienna, Austria, 2023.
+\newblock URL \url{https://www.R-project.org/}.
+
+\end{thebibliography}
