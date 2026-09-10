@@ -1,0 +1,159 @@
+---
+title: "Ozônio e temperatura em Nova York"
+subtitle: "As seções de `latex/artigo.tex`, com a tabela e a figura calculadas"
+author: "Tecnologia de Dados (DEST/UFPR)"
+date: today
+lang: pt-BR
+bibliography: ../latex/referencias.bib
+abstract: |
+  Ajustamos um modelo de regressão linear simples para a concentração de
+  ozônio em função da temperatura, em 153 observações diárias registradas
+  em Nova York entre maio e setembro de 1973. A temperatura explica parte
+  substancial da variação observada.
+format:
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+---
+
+Este documento tem as mesmas seções, a mesma matemática e a mesma base de
+referências de `latex/artigo.tex`. A diferença está em três lugares: a
+tabela, a figura e os números citados no texto não foram digitados, e sim
+calculados a partir de `dados/airquality.csv` no momento da renderização.
+
+::: {.callout-note}
+## O que este documento precisa
+
+Apenas R e Quarto: a análise não usa pacote externo nenhum. Os caminhos
+são relativos e supõem que o diretório de trabalho é a pasta `qmds/`, que
+é onde a renderização coloca os blocos. Mantenha a estrutura do material,
+com `dados/` e `latex/` ao lado de `qmds/` --- a base de referências é a
+mesma que o artigo em LaTeX usa, lida em `../latex/referencias.bib`.
+:::
+
+## Introdução {#sec-introducao}
+
+O conjunto de dados usado aqui acompanha as distribuições do R [@rcore] e
+reúne medições diárias de qualidade do ar. O interesse é descrever a
+relação entre a concentração de ozônio, em partes por bilhão, e a
+temperatura máxima do dia, em graus Fahrenheit.
+
+Este documento existe para ser modificado: cada seção mostra um recurso do
+Quarto tratado no material da disciplina, e a estrutura serve de ponto de
+partida para um relatório próprio. A referência completa da linguagem de
+marcação está em @lamport1994 e em @mittelbach2023.
+
+## Dados {#sec-dados}
+
+```{r leitura}
+dados <- read.csv("../dados/airquality.csv")
+completos <- na.omit(dados)
+```
+
+As `r nrow(dados)` observações cobrem cinco meses, e `r nrow(completos)`
+delas estão completas nas quatro variáveis medidas. As médias mensais das
+duas variáveis de interesse estão na @tbl-medias, e mostram que os dois
+valores máximos ocorrem nos mesmos meses.
+
+```{r tbl-medias}
+#| tbl-cap: "Médias mensais de ozônio e de temperatura."
+## na.action = na.pass deixa cada coluna ser resumida com os dias em que
+## ela foi medida; o padrão descartaria o mês inteiro de uma linha sem
+## ozônio, e a média de temperatura sairia diferente
+medias <- aggregate(cbind(Ozone, Temp) ~ Month, data = dados, FUN = mean,
+                    na.action = na.pass, na.rm = TRUE)
+meses <- c("Maio", "Junho", "Julho", "Agosto", "Setembro")
+tabela <- data.frame(meses,
+                     round(medias$Ozone, 1),
+                     round(medias$Temp, 1))
+names(tabela) <- c("Mês", "Ozônio (ppb)", "Temperatura (F)")
+knitr::kable(tabela)
+```
+
+A @fig-dispersao apresenta as observações e a reta ajustada. A dispersão
+cresce com a temperatura, o que é a violação de suposição mais visível no
+gráfico.
+
+```{r fig-dispersao}
+#| fig-cap: "Ozônio contra temperatura, com a reta de mínimos quadrados.
+#|   Cada ponto é um dia."
+#| fig-width: 7
+#| fig-height: 4.5
+plot(completos$Temp, completos$Ozone,
+     pch = 20, col = "steelblue",
+     xlab = "Temperatura (°F)", ylab = "Ozônio (ppb)")
+abline(lm(Ozone ~ Temp, data = completos), col = "tomato", lwd = 2)
+```
+
+## Modelo {#sec-modelo}
+
+O modelo de regressão linear simples supõe que a resposta $Y_i$ se
+relaciona com o preditor $x_i$ segundo a @eq-modelo,
+
+$$
+Y_i = \beta_0 + \beta_1 x_i + \varepsilon_i,
+\qquad \varepsilon_i \sim \mathcal{N}(0, \sigma^2),
+$$ {#eq-modelo}
+
+com os erros independentes. O estimador de mínimos quadrados de
+$\boldsymbol{\beta} = (\beta_0, \beta_1)^{\top}$ tem forma fechada, e o
+desenvolvimento cabe em duas linhas alinhadas pelo sinal de igualdade:
+
+$$
+\begin{aligned}
+  \hat{\boldsymbol{\beta}}
+    &= \arg\min_{\boldsymbol{\beta}}
+       \sum_{i=1}^{n} (y_i - \beta_0 - \beta_1 x_i)^2 \\
+    &= (\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}\mathbf{y},
+\end{aligned}
+$$
+
+em que $\mathbf{X}$ é a matriz do modelo, com uma coluna de uns e a coluna
+do preditor:
+
+$$
+\mathbf{X} =
+\begin{bmatrix}
+  1 & x_1 \\
+  \vdots & \vdots \\
+  1 & x_n
+\end{bmatrix}.
+$$
+
+A variância do estimador depende de $\sigma^2$, estimada pelo quadrado
+médio dos resíduos:
+
+$$
+\hat{\sigma}^2 = \frac{1}{n - 2} \sum_{i=1}^{n}
+  \left( y_i - \hat{y}_i \right)^2 .
+$$
+
+Ajustado aos dados completos, o modelo dá as estimativas abaixo:
+
+```{r ajuste}
+ajuste <- lm(Ozone ~ Temp, data = completos)
+summary(ajuste)
+```
+
+## Conclusão {#sec-conclusao}
+
+```{r estimativas}
+coeficientes <- round(coef(ajuste), 2)
+r2 <- round(100 * summary(ajuste)$r.squared, 1)
+```
+
+A relação entre as duas variáveis é positiva, com inclinação estimada em
+`r coeficientes[["Temp"]]` ppb por grau Fahrenheit, e forte o bastante
+para justificar o modelo da @sec-modelo: a temperatura sozinha explica
+`r r2`% da variação do ozônio. A heterogeneidade de variância apontada na
+@sec-dados recomenda uma transformação da resposta antes de qualquer
+inferência.
+
+## Referências {.unnumbered}
+
+::: {#refs}
+:::
